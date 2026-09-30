@@ -77,7 +77,7 @@ def nyaa(search_string):
 #            "infoHash": item["infoHash"],
 #            "size": item["size"],
 #        }
-#    parsed_items.append(parsed_item)
+#        parsed_items.append(parsed_item)
 #    if not found_results:
 #        return None
 #
