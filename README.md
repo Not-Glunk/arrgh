@@ -1,2 +1,2 @@
 # arrgh
-Fancy pyCurses TUI to facilitate media archiving
+to be refactored, soon™
