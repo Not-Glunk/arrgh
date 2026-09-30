@@ -1,0 +1,34 @@
+# @def Download Path: where torrents will be downloaded
+# @ex "/path/to/folder"
+download_path = "/path/to/folder"
+# @def Transcode Path: where media files will be moved after renaming and transcoding
+# @ex "/path/to/folder"
+transcode_path = "/path/to/folder"
+# @def Subtitles Path: where subtitle tracks to be embedded are stored
+# @ex "/path/to/folder"
+subtitles_path = "/path/to/folder"
+
+# @def Wanted Languages: those that will be used for renaming and shown as avaiable if found in media files
+# @def2 these have to be declared as per ISO-639-2
+# @ex "jpn ita eng"
+wanted_languages = ["jpn", "ita", "eng"]
+
+
+# Transcode Options: ffmpeg arguments for video and audio codecs to transcode media files into
+
+# @def Input Hardware Accelleration (leave empty if no input hw accel (" "))
+# @ex intel: -hwaccel_output_format qsv
+# intel: "-hwaccel_output_format", "qsv"
+transcode_input_accel = []
+
+# @def Transcode Video Arguments
+# @ex software h265: libx265 -preset slow -crf 20
+# software h265: "libx265", "-preset", "slow", "-crf", "20"
+# @ex intel hardware h265: hevc_qsv -preset veryslow -global_quality 15 -look_ahead 1 -look_ahead_depth 69
+# intel hardware h265: "hevc_qsv", "-preset", "veryslow", "-global_quality", "15", "-look_ahead", "1", "-look_ahead_depth", "69"
+transcode_video_args = ["libx265", "-preset", "slow", "-crf", "20"]
+
+# @def Transcode Audio Arguments
+# @ex 320kbps aac: aac -b:a 320k
+# 320kbps aac: "aac", "-b:a", "320k"
+transcode_audio_args = ["aac", "-b:a", "320k"]
