@@ -8,12 +8,15 @@ from pathlib import Path
 import tomllib
 import re
 import tomlkit
+import os
 
 import fingers
 import inspect
 from pioggerella import download_torrent
 from coloring import init_colors
 
+# since we aren't using any character sequences, have esc instantly quit out of input fields
+os.environ.setdefault('ESCDELAY', '1')
 # init colors
 colors = init_colors()
 
@@ -38,6 +41,7 @@ def print_title(stdscr, h_alignment=None):
     elif h_alignment == "left-aligned":
         title_window = curses.newwin(11, 51, 2, 3)
 
+    # carved on nano, with love
     title_window.addstr(0, 0, "                               ⠀⠀⠀ ⠀⠀⠠⣴⣦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀", colors['anger_emoji_color'])
     title_window.addstr(1, 27, ")", colors['fire_color_third']); title_window.addstr(1, 29, " ⠀⠀ ⣀⣶⡄⠀⠀⠹⣿⣷⣀⠀⠀⢀⣤⣾⣧⠀⠀⠀", colors['anger_emoji_color'])
     title_window.addstr(2, 4, ")", colors['smoke_color_first']); title_window.addstr(2, 7, "(", colors['fire_color_third']); title_window.addstr(2, 12, "(", colors['fire_color_third']); title_window.addstr(2, 17, "(", colors['smoke_color_first']); title_window.addstr(2, 20, "(", colors['smoke_color_first']); title_window.addstr(2, 24, "(", colors['fire_color_third']); title_window.addstr(2, 26, "/", colors['smoke_color_first']); title_window.addstr(2, 27, "(", colors['fire_color_second']); title_window.addstr(2, 29, " ⠀⠀ ⠈⢿⣿⣆⠀⠀⠈⠻⣿⣿⣿⡿⠿⠋⠁⠀⠀⠀", colors['anger_emoji_color'])
@@ -118,6 +122,20 @@ def add_input_field(stdscr, input_y, input_x, width):
             if cursor_x > 0:
                 text = text[:cursor_x - 1] + text[cursor_x:]
                 cursor_x -= 1
+
+        elif key == curses.KEY_RESIZE:
+            stdscr.clear()
+            h, w = stdscr.getmaxyx() # sorry, i am NOT handling that
+            curses.noecho()
+            curses.curs_set(0)
+            stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+            stdscr.getch()
+            return None
+
+        elif key == ord('\x1b'): # if esc, quit
+            curses.noecho()
+            curses.curs_set(0)
+            return None
 
     return inputted_data
 
@@ -491,15 +509,15 @@ def download_menu(stdscr, y_pos, max_y, config, indexer):
             redraw_windows(stdscr, h_alignment="left-aligned")
             pause_thread.set() # unpause torrent status printing
 
-def check_terminal_size(stdscr, min_h, min_w):
+def check_terminal_size(stdscr, min_h, min_w, warn_string="Terminal window too small!"):
     """Checks terminal size and interrupts drawing to screen until a sufficient minimum height and width is set. Returns True if triggered. Also allows user to panic hit q"""
-    warn_string = "Terminal window too small!"
     h, w = stdscr.getmaxyx()
-    if  h >= min_h and w >= min_w:
+    if h >= min_h and w >= min_w:
         return
     while True:
         h, w = stdscr.getmaxyx()
         if  h >= min_h and w >= min_w:
+            stdscr.erase()
             return True
 
         stdscr.erase()
@@ -605,9 +623,9 @@ def select_media(stdscr, y_pos, max_y, media_list):
     scroll_offset = 0
 
     max_entries = max_y - 2
+    h, w = stdscr.getmaxyx()
 
-    while True: #TODO: resizing handling? would have to redraw (S)ingle or (B)atch, and if in section pass selected_first_languages and second -- ooor just display those once all have been selected, so this function doesn't have to redraw those (maybe just "first file:" and "second file:"), and they just get added before final confirmation, yep,, will handle it like that, #TODO
-        h, w = stdscr.getmaxyx()
+    while True:
         entry_max_length = min(max(len(entry) for entry in media_list), w-6)
         stdscr.addstr(y_pos, 0, " "*w)
         stdscr.addstr(y_pos, (entry_max_length+6)//2, "^")
@@ -635,7 +653,15 @@ def select_media(stdscr, y_pos, max_y, media_list):
 
         key = stdscr.getch()
 
-        if key == curses.KEY_UP:
+        if key == curses.KEY_RESIZE:
+            stdscr.clear()
+            h, w = stdscr.getmaxyx() # sorry, i am NOT handling that
+            stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+            stdscr.getch()
+            return None
+        elif key == ord('\x1b'): # if esc, quit
+            return None
+        elif key == curses.KEY_UP:
             if selected_idx > 0:
                 selected_idx -= 1
             if selected_idx < scroll_offset:
@@ -767,20 +793,27 @@ def rename_media_output(media_input, audio_streams, subtitle_streams):
 def transcode_menu_quality(stdscr, config):
     """Prints simple transcode menu, takes care of media selection and ffmpeg for (S)ingle and (B)atch transcodes"""
     stdscr.clear()
+    h, w = stdscr.getmaxyx()
+    min_qualm_h = 28
+    min_qualm_w = 95
+    check_terminal_size(stdscr, min_qualm_h, min_qualm_w)
     redraw_windows(stdscr, h_alignment="left-aligned")
 
     stdscr.addstr(13, 3, "(S)ingle or (B)atch?", colors["header_string_color"])
     stdscr.addstr(14, 3, "'q' to quit transcode", colors["quit_search_color"])
     stdscr.refresh()
     key = None
-    h, w = stdscr.getmaxyx()
     while True:
         key = stdscr.getch()
         if key == curses.KEY_RESIZE:
             h, w = stdscr.getmaxyx()
-            check_terminal_size(stdscr, 18+h//3, 60)
+            check_terminal_size(stdscr, min_qualm_h, min_qualm_w)
         if key in [83, 115] or key in [66, 98] or key in [81, 113]: # (S)ingle or (B)atch or (Q)uit
             break
+
+        redraw_windows(stdscr, h_alignment="left-aligned")
+        stdscr.addstr(13, 3, "(S)ingle or (B)atch?", colors["header_string_color"])
+        stdscr.addstr(14, 3, "'q' to quit transcode", colors["quit_search_color"])
     if key in [81, 113]: return # (Q)uit to main menu
 
     flister_list = []
@@ -918,6 +951,10 @@ def transcode_menu_quality(stdscr, config):
 
 def transcode_menu_language(stdscr, config):
     stdscr.clear()
+    h, w = stdscr.getmaxyx()
+    min_langm_h = 38
+    min_langm_w = 95
+    check_terminal_size(stdscr, min_langm_h, min_langm_h)
     redraw_windows(stdscr, h_alignment="left-aligned")
 
     stdscr.addstr(13, 3, "(S)ingle or (B)atch?", colors["header_string_color"])
@@ -928,22 +965,34 @@ def transcode_menu_language(stdscr, config):
     stdscr.addstr(14, 28, "(E)nable/(D)", colors["unselected_entry_softer"])
     stdscr.refresh()
     key = None
-    h, w = stdscr.getmaxyx()
     while True:
         key = stdscr.getch()
+
+        stdscr.clear()
+
         if key == curses.KEY_RESIZE:
             h, w = stdscr.getmaxyx()
-            check_terminal_size(stdscr, 18+h//3, 60)
+            check_terminal_size(stdscr, min_langm_h, min_langm_h)
         if key in [69, 101]: # (E)nable encoding
-            stdscr.addstr(13, 29, "■", colors["unselected_entry_softer"])
-            stdscr.addstr(13, 31, "Transcode", colors["seeders_text_color"])
             stdscr.refresh()
             to_transcode = True
         if key in [68, 100]: # (D)isable encoding
-            stdscr.addstr(13, 29, "□", colors["unselected_entry_softer"])
-            stdscr.addstr(13, 31, "Transcode", colors["leechers_text_color"])
             stdscr.refresh
             to_transcode = False
+
+        redraw_windows(stdscr, h_alignment="left-aligned")
+
+        stdscr.addstr(13, 3, "(S)ingle or (B)atch?", colors["header_string_color"])
+        stdscr.addstr(14, 3, "'q' to quit transcode", colors["quit_search_color"])
+        if to_transcode == True:
+            stdscr.addstr(13, 29, "■", colors["unselected_entry_softer"])
+            stdscr.addstr(13, 31, "Transcode", colors["seeders_text_color"])
+            stdscr.refresh()
+        elif to_transcode == False:
+            stdscr.addstr(13, 29, "□", colors["unselected_entry_softer"])
+            stdscr.addstr(13, 31, "Transcode", colors["leechers_text_color"])
+        stdscr.addstr(14, 28, "(E)nable/(D)", colors["unselected_entry_softer"])
+
         if key in [83, 115] or key in [66, 98] or key in [81, 113]: # (S)ingle or (B)atch or (Q)uit
             stdscr.addstr(14, 28, " "*12)
             stdscr.refresh()
@@ -1012,8 +1061,11 @@ def transcode_menu_language(stdscr, config):
             key = stdscr.getch()
 
             if key == curses.KEY_RESIZE:
-                h, w = stdscr.getmaxyx()
-                check_terminal_size(stdscr, 18+(h//3)*2+10, 60)
+                stdscr.clear()
+                h, w = stdscr.getmaxyx() # sorry, i am NOT handling this (could, but way ugly)
+                stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+                stdscr.getch()
+                return
             elif key == curses.KEY_UP and current_idx > 0:
                 current_idx -= 1
             elif key == curses.KEY_DOWN and current_idx < len(first_media_audio_streams)-1:
@@ -1055,8 +1107,11 @@ def transcode_menu_language(stdscr, config):
             key = stdscr.getch()
 
             if key == curses.KEY_RESIZE:
-                h, w = stdscr.getmaxyx()
-                check_terminal_size(stdscr, 18+(h//3)*2+10, 60)
+                stdscr.clear()
+                h, w = stdscr.getmaxyx() # sorry, i am NOT handling this (could, but way ugly)
+                stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+                stdscr.getch()
+                return
             elif key == curses.KEY_UP and current_idx > 0:
                 current_idx -= 1
             elif key == curses.KEY_DOWN and current_idx < len(first_media_subtitle_streams)-1:
@@ -1081,7 +1136,10 @@ def transcode_menu_language(stdscr, config):
         stdscr.addstr(16, 3, "Selected streams for first file:", colors["unselected_entry_softer"])
         stdscr.addstr(17, 3, f"Audio: {audio_selection}", colors["entry_text_color"])
         stdscr.addstr(18, 3, f"Subtitle: {subtitle_selection}", colors["entry_text_color"])
-        stdscr.addstr(19, 3, f"From: {first_selected_media}", colors["quit_search_color"])
+        first_selected_media_display = first_selected_media
+        if len(first_selected_media_display) > w-12:
+            first_selected_media_display = first_selected_media_display[:(w-15)] + "..."
+        stdscr.addstr(19, 3, f"From: {first_selected_media_display}", colors["quit_search_color"])
 
         ### second file // yes yes, most 'second_' variables are redundant
         stdscr.addstr(21, 3, "Select second file:", colors["header_string_color"])
@@ -1114,8 +1172,11 @@ def transcode_menu_language(stdscr, config):
             key = stdscr.getch()
 
             if key == curses.KEY_RESIZE:
-                h, w = stdscr.getmaxyx()
-                check_terminal_size(stdscr, 18+(h//3)*2+10, 60)
+                stdscr.clear()
+                h, w = stdscr.getmaxyx() # sorry, i am NOT handling this (could, but way ugly)
+                stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+                stdscr.getch()
+                return
             elif key == curses.KEY_UP and current_idx > 0:
                 current_idx -= 1
             elif key == curses.KEY_DOWN and current_idx < len(second_media_audio_streams)-1:
@@ -1157,8 +1218,11 @@ def transcode_menu_language(stdscr, config):
             key = stdscr.getch()
 
             if key == curses.KEY_RESIZE:
-                h, w = stdscr.getmaxyx()
-                check_terminal_size(stdscr, 18+(h//3)*2+10, 60)
+                stdscr.clear()
+                h, w = stdscr.getmaxyx() # sorry, i am NOT handling this (could, but way ugly)
+                stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+                stdscr.getch()
+                return
             elif key == curses.KEY_UP and current_idx > 0:
                 current_idx -= 1
             elif key == curses.KEY_DOWN and current_idx < len(second_media_subtitle_streams)-1:
@@ -1183,7 +1247,10 @@ def transcode_menu_language(stdscr, config):
         stdscr.addstr(21, 3, "Selected streams for second file:", colors["unselected_entry_softer"])
         stdscr.addstr(22, 3, f"Audio: {audio_selection}", colors["entry_text_color"])
         stdscr.addstr(23, 3, f"Subtitle: {subtitle_selection}", colors["entry_text_color"])
-        stdscr.addstr(24, 3, f"From: {second_selected_media}", colors["quit_search_color"])
+        second_selected_media_display = second_selected_media
+        if len(second_selected_media_display) > w-12:
+            second_selected_media_display = second_selected_media_display[:(w-15)] + "..."
+        stdscr.addstr(24, 3, f"From: {second_selected_media_display}", colors["quit_search_color"])
 
         merge_audio_streams = first_selected_audio_streams + second_selected_audio_streams
         merge_subtitle_streams = first_selected_subtitle_streams + second_selected_subtitle_streams
@@ -1197,7 +1264,13 @@ def transcode_menu_language(stdscr, config):
 
         while True:
             key = stdscr.getch()
-            if key == curses.KEY_ENTER or key in [10,13]:
+            if key == curses.KEY_RESIZE:
+                stdscr.clear()
+                h, w = stdscr.getmaxyx() # sorry, i am NOT handling this (could, but way ugly)
+                stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+                stdscr.getch()
+                return
+            elif key == curses.KEY_ENTER or key in [10,13]:
                 stdscr.addstr(26, 29, " "*16)
                 break
             elif key in [81, 113]: return # (Q)uit to main menu
@@ -1303,8 +1376,11 @@ def transcode_menu_language(stdscr, config):
             key = stdscr.getch()
 
             if key == curses.KEY_RESIZE:
-                h, w = stdscr.getmaxyx()
-                check_terminal_size(stdscr, 18+(h//3)*2+10, 60)
+                stdscr.clear()
+                h, w = stdscr.getmaxyx() # sorry, i am NOT handling this (could, but way ugly)
+                stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+                stdscr.getch()
+                return
             elif key == curses.KEY_UP and current_idx > 0:
                 current_idx -= 1
             elif key == curses.KEY_DOWN and current_idx < len(first_folder_audio_streams)-1:
@@ -1345,8 +1421,11 @@ def transcode_menu_language(stdscr, config):
             key = stdscr.getch()
 
             if key == curses.KEY_RESIZE:
-                h, w = stdscr.getmaxyx()
-                check_terminal_size(stdscr, 18+(h//3)*2+10, 60)
+                stdscr.clear()
+                h, w = stdscr.getmaxyx() # sorry, i am NOT handling this (could, but way ugly)
+                stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+                stdscr.getch()
+                return
             elif key == curses.KEY_UP and current_idx > 0:
                 current_idx -= 1
             elif key == curses.KEY_DOWN and current_idx < len(first_folder_subtitle_streams)-1:
@@ -1371,7 +1450,10 @@ def transcode_menu_language(stdscr, config):
         stdscr.addstr(16, 3, "Selected streams for first file:", colors["unselected_entry_softer"])
         stdscr.addstr(17, 3, f"Audio: {audio_selection}", colors["entry_text_color"])
         stdscr.addstr(18, 3, f"Subtitle: {subtitle_selection}", colors["entry_text_color"])
-        stdscr.addstr(19, 3, f"From: {first_selected_media}", colors["quit_search_color"])
+        first_selected_media_display = first_selected_media
+        if len(first_selected_media_display) > w-12:
+            first_selected_media_display = first_selected_media_display[:(w-15)] + "..."
+        stdscr.addstr(19, 3, f"From: {first_selected_media_display}", colors["quit_search_color"])
 
         ### second file // yes yes, most 'second_' variables are redundant
         stdscr.addstr(21, 3, "Select second file:", colors["header_string_color"])
@@ -1410,8 +1492,11 @@ def transcode_menu_language(stdscr, config):
             key = stdscr.getch()
 
             if key == curses.KEY_RESIZE:
-                h, w = stdscr.getmaxyx()
-                check_terminal_size(stdscr, 18+(h//3)*2+10, 60)
+                stdscr.clear()
+                h, w = stdscr.getmaxyx() # sorry, i am NOT handling this (could, but way ugly)
+                stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+                stdscr.getch()
+                return
             elif key == curses.KEY_UP and current_idx > 0:
                 current_idx -= 1
             elif key == curses.KEY_DOWN and current_idx < len(second_folder_audio_streams)-1:
@@ -1452,8 +1537,11 @@ def transcode_menu_language(stdscr, config):
             key = stdscr.getch()
 
             if key == curses.KEY_RESIZE:
-                h, w = stdscr.getmaxyx()
-                check_terminal_size(stdscr, 18+(h//3)*2+10, 60)
+                stdscr.clear()
+                h, w = stdscr.getmaxyx() # sorry, i am NOT handling this (could, but way ugly)
+                stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+                stdscr.getch()
+                return
             elif key == curses.KEY_UP and current_idx > 0:
                 current_idx -= 1
             elif key == curses.KEY_DOWN and current_idx < len(second_folder_subtitle_streams)-1:
@@ -1478,7 +1566,10 @@ def transcode_menu_language(stdscr, config):
         stdscr.addstr(21, 3, "Selected streams for second file:", colors["unselected_entry_softer"])
         stdscr.addstr(22, 3, f"Audio: {audio_selection}", colors["entry_text_color"])
         stdscr.addstr(23, 3, f"Subtitle: {subtitle_selection}", colors["entry_text_color"])
-        stdscr.addstr(24, 3, f"From: {second_selected_media}", colors["quit_search_color"])
+        second_selected_media_display = second_selected_media
+        if len(second_selected_media_display) > w-12:
+            second_selected_media_display = second_selected_media_display[:(w-15)] + "..."
+        stdscr.addstr(24, 3, f"From: {second_selected_media_display}", colors["quit_search_color"])
 
         merge_audio_streams = first_selected_audio_streams + second_selected_audio_streams
         merge_subtitle_streams = first_selected_subtitle_streams + second_selected_subtitle_streams
@@ -1489,11 +1580,21 @@ def transcode_menu_language(stdscr, config):
         stdscr.addstr(27, 3, merge_renamed_folder, colors["entry_text_color"])
         stdscr.addstr(28, 3, "*This assumes you're merging stuff that makes sense, no checks", colors["quit_search_color"])
         stdscr.addstr(29, 3, "*Final filename and video stream is taken from the first input", colors["quit_search_color"])
-        stdscr.addstr(30, 3, "*Assuming that files in both folders can be alphabetically sorted in the same order and that streams are consistent in each of them. Praise thy lord", colors["quit_search_color"])
+        if w < 148-6:
+            stdscr.addstr(30, 3, "*Assuming that files in both folders can be alphabetically sorted in the same order and that streams are consistent in each of them. Praise thy lord"[:w-7]+"-", colors["quit_search_color"])
+            stdscr.addstr(31, 4, "*Assuming that files in both folders can be alphabetically sorted in the same order and that streams are consistent in each of them. Praise thy lord"[w-7:], colors["quit_search_color"])
+        else:
+            stdscr.addstr(30, 3, "*Assuming that files in both folders can be alphabetically sorted in the same order and that streams are consistent in each of them. Praise thy lord", colors["quit_search_color"])
 
         while True:
             key = stdscr.getch()
-            if key == curses.KEY_ENTER or key in [10,13]:
+            if key == curses.KEY_RESIZE:
+                stdscr.clear()
+                h, w = stdscr.getmaxyx() # sorry, i am NOT handling this (could, but way ugly)
+                stdscr.addstr(h//2, (w-3)//2, ">:(", colors["anger_emoji_color"])
+                stdscr.getch()
+                return
+            elif key == curses.KEY_ENTER or key in [10,13]:
                 stdscr.addstr(26, 29, " "*16)
                 break
             elif key in [81, 113]: return # (Q)uit to main menu
@@ -1577,20 +1678,27 @@ def transcode_menu_language(stdscr, config):
 def embed_subtitle_menu(stdscr, config):
     """Prints menu to embed subtitle track into mkv file"""
     stdscr.clear()
+    h, w = stdscr.getmaxyx()
+    min_embedm_h = 35
+    min_embedm_w = 60
+    check_terminal_size(stdscr, min_embedm_h, min_embedm_w)
     redraw_windows(stdscr, h_alignment="left-aligned")
 
     stdscr.addstr(13, 3, "Select .mkv file from (D)ownload or (T)ranscode path?", colors["header_string_color"])
     stdscr.addstr(14, 3, "'q' to quit embedding", colors["quit_search_color"])
-    stdscr.refresh()
     key = None
-    h, w = stdscr.getmaxyx()
     while True:
         key = stdscr.getch()
         if key == curses.KEY_RESIZE:
             h, w, = stdscr.getmaxyx()
-            check_terminal_size(stdscr, 18+h//3, 60)
+            check_terminal_size(stdscr, min_embedm_h, min_embedm_w)
         if key in [68, 100] or key in [84, 116] or key in [81, 113]: # (D)ownload or (T)ranscode or (Q)uit
             break
+
+        stdscr.clear()
+        redraw_windows(stdscr, h_alignment="left-aligned")
+        stdscr.addstr(13, 3, "Select .mkv file from (D)ownload or (T)ranscode path?", colors["header_string_color"])
+        stdscr.addstr(14, 3, "'q' to quit embedding", colors["quit_search_color"])
     if key in [81, 113]: return # (Q)uit to main menu
 
     files_path = None
@@ -1643,15 +1751,25 @@ def embed_subtitle_menu(stdscr, config):
 
     stdscr.addstr(16, 3, " "*w*(((h-16)//3)+1))
     stdscr.addstr(16, 3, "Selected .mkv file:", colors["unselected_entry_softer"])
-    stdscr.addstr(17, 3, selected_media, colors["entry_text_color"])
+    selected_media_display = selected_media
+    if len(selected_media_display) > w-6:
+        selected_media_display = selected_media_display[:(w-9)] + "..."
+    stdscr.addstr(17, 3, selected_media_display, colors["entry_text_color"])
     stdscr.addstr(18, 3, "Selected subtitle track to embed:", colors["unselected_entry_softer"])
-    stdscr.addstr(19, 3, subs_list[selected_sub_idx], colors["entry_text_color"])
+    selected_sub_display = subs_list[selected_sub_idx]
+    if len(selected_sub_display) > w-6:
+        selected_sub_display = selected_sub_display[:(w-9)] + "..."
+    stdscr.addstr(19, 3, selected_sub_display, colors["entry_text_color"])
 
     stdscr.addstr(21, 3, "Specify subtitle track title:", colors["header_string_color"])
     sub_title = add_input_field(stdscr, 22, 3, 28)
+    if sub_title is None: # handling quitting during input
+        return
 
     stdscr.addstr(24, 3, "Specify subtitle track language to confirm:", colors["header_string_color"])
     sub_lang = add_input_field(stdscr, 25, 3, 3)
+    if sub_lang is None: # handling quitting during input
+        return
     output_mkv = selected_media
     if sub_lang != "":
         if key in [68, 100]: # (D)ownload
@@ -1705,17 +1823,12 @@ def load_indexers():
             indexers[indexer] = function
 
     return indexers
-# search_results = indexers["nyaa"](query_text)
-# indexer_name = indexers[0]["nyaa"]
-#
-# indexers = load_indexers()
-# indexer = indexers["nyaa"]
-# indexers_names = list(indexers.keys())
-# selected_index = selection_menu(indexers_names)
-# indexer = indexers[indexers_names[selected_index]]
 
 def indexers_menu(stdscr, indexers, indexer):
     stdscr.clear()
+    min_indexerm_h = 30
+    min_indexerm_w = 60
+    check_terminal_size(stdscr, min_indexerm_h, min_indexerm_w)
     redraw_windows(stdscr)
 
     current_idx = 0
@@ -1735,8 +1848,7 @@ def indexers_menu(stdscr, indexers, indexer):
         key = stdscr.getch()
         if key == curses.KEY_RESIZE:
             h, w = stdscr.getmaxyx()
-            if check_terminal_size(stdscr, 30, 60):
-                return
+            check_terminal_size(stdscr, min_indexerm_h, min_indexerm_w)
         elif key == curses.KEY_UP:
             if current_idx == -1:
                 current_idx = 0
@@ -1749,6 +1861,8 @@ def indexers_menu(stdscr, indexers, indexer):
             return indexer
         elif key in [81, 113]: return indexer # (Q)uit to main menu
 
+        stdscr.clear()
+        redraw_windows(stdscr)
         for idx, row in enumerate(indexers):
             x = w//2 - len(row)//2
             y = max((16+idx*2), ((h-6)//2 - len(indexers)//2 + idx*2))
@@ -1777,6 +1891,10 @@ def edit_config_param(config_file, parameter, value):
 
 def edit_config_menu(stdscr, config, config_file):
     stdscr.clear()
+    min_confm_h = 46
+    min_confm_w = 113
+    if check_terminal_size(stdscr, min_confm_h, min_confm_w, ">:("):
+        return
     redraw_windows(stdscr, h_alignment="left-aligned")
 
     stdscr.addstr(13, 0, config["download_path"]["def"], colors["config_display_def"])
@@ -1820,15 +1938,13 @@ def edit_config_menu(stdscr, config, config_file):
 
     current_idx = -1
     h, w = stdscr.getmaxyx()
-    if check_terminal_size(stdscr, 45, 133):
-        return
     while True:
         key = stdscr.getch()
 
 
         if key == curses.KEY_RESIZE:
             h, w = stdscr.getmaxyx()
-            if check_terminal_size(stdscr, 45, 133):
+            if check_terminal_size(stdscr, min_confm_h,	min_confm_w):
                 return
         elif key == curses.KEY_UP:
             if current_idx == -1:
@@ -1841,6 +1957,8 @@ def edit_config_menu(stdscr, config, config_file):
             stdscr.addstr(25, 45, "Don't write anything to abort change", colors["leechers_text_color"])
             if current_idx == 0: # download_path
                 value = add_input_field(stdscr, 14, 16, w-16-13)
+                if value is None: # handling quitting during input
+                    return
                 if value.strip() == "": # handling quitting edit
                     stdscr.addstr(14, 16, " "*(w-16))
                     stdscr.addstr(14, 16, config["download_path"]["value"], colors["config_display_val"])
@@ -1856,6 +1974,8 @@ def edit_config_menu(stdscr, config, config_file):
                 stdscr.refresh()
             elif current_idx == 1: # transcode_path
                 value = add_input_field(stdscr, 18, 17, w-17-13)
+                if value is None: # handling quitting during input
+                    return
                 if value.strip() == "":
                     stdscr.addstr(18, 17, " "*(w-17))
                     stdscr.addstr(18, 17, config["transcode_path"]["value"], colors["config_display_val"])
@@ -1871,6 +1991,8 @@ def edit_config_menu(stdscr, config, config_file):
                 stdscr.refresh()
             elif current_idx == 2: # subtitles_languages
                 value = add_input_field(stdscr, 22, 17, w-17-13)
+                if value is None: # handling quitting during input
+                    return
                 if value.strip() == "":
                     stdscr.addstr(22, 17, " "*(w-17))
                     stdscr.addstr(22, 17, config["subtitles_path"]["value"], colors["config_display_val"])
@@ -1886,6 +2008,8 @@ def edit_config_menu(stdscr, config, config_file):
                 stdscr.refresh()
             elif current_idx == 3: # wanted_languages
                 value = add_input_field(stdscr, 28, 19, w-19-13)
+                if value is None: # handling quitting during input
+                    return
                 if value.strip() == "":
                     stdscr.addstr(28, 19, " "*(w-19))
                     stdscr.addstr(28, 19, ' '.join([v for v in config["wanted_languages"]["value"]]), colors["config_display_val"])
@@ -1901,6 +2025,8 @@ def edit_config_menu(stdscr, config, config_file):
                 stdscr.refresh()
             elif current_idx == 4: # transcode_input_accel
                 value = add_input_field(stdscr, 35, 24, w-24-13)
+                if value is None: # handling quitting during input
+                    return
                 if value == "":
                     stdscr.addstr(35, 24, ' '.join([v for v in config["transcode_input_accel"]["value"]]), colors["config_display_val"])
                     stdscr.addstr(35, 24, " "*(w-24))
@@ -1916,6 +2042,8 @@ def edit_config_menu(stdscr, config, config_file):
                 stdscr.refresh()
             elif current_idx == 5: # transcode_video_args
                 value = add_input_field(stdscr, 39, 23, w-23-13)
+                if value is None: # handling quitting during input
+                    return
                 if value.strip() == "":
                     stdscr.addstr(39, 23, " "*(w-23))
                     stdscr.addstr(39, 23, ' '.join([v for v in config["transcode_video_args"]["value"]]), colors["config_display_val"])
@@ -1931,6 +2059,8 @@ def edit_config_menu(stdscr, config, config_file):
                 stdscr.refresh()
             elif current_idx == 6: # transcode_audio_args
                 value = add_input_field(stdscr, 44, 23, w-23-13)
+                if value is None: # handling quitting during input
+                    return
                 if value.strip() == "":
                     stdscr.addstr(44, 23, " "*(w-23))
                     stdscr.addstr(44, 23, ' '.join([v for v in config["transcode_audio_args"]["value"]]), colors["config_display_val"])
@@ -2009,6 +2139,8 @@ def edit_config_menu(stdscr, config, config_file):
 #TODO: make (most) check_terminal_size variables global(->actually, defined in main) and properly limited (check kitty hypr cell count)
 #TODO: refactor
 #      - curses draw pipeline: call `redraw_windows` only when key `RESIZE` is triggered,, and always have menu contents reprinted each While True loop
+#      - elif key == ord('\x1b'): # if esc, quit
+#      - normalize to draw-loop-template
 #TODO: if ffmpeg stderr, capture to output errored out file
 def main(stdscr):
     curses.curs_set(0) # disable cursor blinking
@@ -2021,19 +2153,21 @@ def main(stdscr):
 
     menu_entries = ['Download', 'Transcode (Quality)', 'Transcode (+ Language)', 'Embed Subtitle', 'Indexer', 'Edit Config', 'Exit']
     current_idx = 0
+    h, w = stdscr.getmaxyx()
+    min_mainm_h = 30
+    min_mainm_w = 60
+    check_terminal_size(stdscr, min_mainm_h, min_mainm_w)
     print_menu(stdscr, menu_entries, current_idx)
-
-    check_terminal_size(stdscr, 30, 60)
 
     # handle user input for navigating main menu
     while True:
-        check_terminal_size(stdscr, 30, 60)
         key = stdscr.getch()
-        h, w = stdscr.getmaxyx()
-
         stdscr.clear()
 
-        if key == curses.KEY_UP and current_idx > 0:
+        if key == curses.KEY_RESIZE:
+            h, w = stdscr.getmaxyx()
+            check_terminal_size(stdscr, min_mainm_h, min_mainm_w)
+        elif key == curses.KEY_UP and current_idx > 0:
             current_idx -= 1
         elif key == curses.KEY_DOWN and current_idx < len(menu_entries)-1:
             current_idx += 1
@@ -2095,6 +2229,7 @@ def main(stdscr):
         elif key == 81 or key == 113: # q to exit
             break
 
+        check_terminal_size(stdscr, min_mainm_h, min_mainm_w)
         print_menu(stdscr, menu_entries, current_idx)
         stdscr.refresh()
 
