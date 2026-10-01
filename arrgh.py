@@ -41,7 +41,7 @@ def print_title(stdscr, h_alignment=None):
     elif h_alignment == "left-aligned":
         title_window = curses.newwin(11, 51, 2, 3)
 
-    # carved on nano, with love
+    # carved by hand on nano, with love
     title_window.addstr(0, 0, "                               ⠀⠀⠀ ⠀⠀⠠⣴⣦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀", colors['anger_emoji_color'])
     title_window.addstr(1, 27, ")", colors['fire_color_third']); title_window.addstr(1, 29, " ⠀⠀ ⣀⣶⡄⠀⠀⠹⣿⣷⣀⠀⠀⢀⣤⣾⣧⠀⠀⠀", colors['anger_emoji_color'])
     title_window.addstr(2, 4, ")", colors['smoke_color_first']); title_window.addstr(2, 7, "(", colors['fire_color_third']); title_window.addstr(2, 12, "(", colors['fire_color_third']); title_window.addstr(2, 17, "(", colors['smoke_color_first']); title_window.addstr(2, 20, "(", colors['smoke_color_first']); title_window.addstr(2, 24, "(", colors['fire_color_third']); title_window.addstr(2, 26, "/", colors['smoke_color_first']); title_window.addstr(2, 27, "(", colors['fire_color_second']); title_window.addstr(2, 29, " ⠀⠀ ⠈⢿⣿⣆⠀⠀⠈⠻⣿⣿⣿⡿⠿⠋⠁⠀⠀⠀", colors['anger_emoji_color'])
@@ -875,18 +875,26 @@ def transcode_menu_quality(stdscr, config):
             '-progress', 'pipe:1',
             config['transcode_path']['value']+'/'+renamed
         ]
-        proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,  text=True, bufsize=1)
-        progress = {}
-        for line in proc.stdout:
-            line = line.strip()
-            if "=" in line: # assemble progress dictionary
-                k, v = line.split("=", 1)
-                progress[k] = v
-            if line == "progress=continue":
-                progress_string = f"Media Time: {progress.get('out_time')}   nFrame: {progress.get('frame')}/{n_frames}   fps: {progress.get('fps')}   Speed: {progress.get('speed')}"
-                stdscr.addstr(17, 3, progress_string, colors['unselected_entry_softer'])
-                stdscr.refresh()
-        proc.wait()
+        log_file = (
+            open("ffmpeg-log", "a", encoding="utf-8")
+            if config['enable_ffmpeg_debug_log']['value'] == 'y'
+            else subprocess.DEVNULL
+        )
+        try:
+            proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=log_file,  text=True, bufsize=1)
+            progress = {}
+            for line in proc.stdout:
+                line = line.strip()
+                if "=" in line: # assemble progress dictionary
+                    k, v = line.split("=", 1)
+                    progress[k] = v
+                if line == "progress=continue":
+                    progress_string = f"Media Time: {progress.get('out_time')}   nFrame: {progress.get('frame')}/{n_frames}   fps: {progress.get('fps')}   Speed: {progress.get('speed')}"
+                    stdscr.addstr(17, 3, progress_string, colors['unselected_entry_softer'])
+                    stdscr.refresh()
+            proc.wait()
+        finally:
+            if log_file is not subprocess.DEVNULL: log_file.close()
         stdscr.addstr(18, (w//2)-10, "Done!", colors['downloaded_torrent_color'])
         stdscr.refresh()
         stdscr.getch()
@@ -932,19 +940,26 @@ def transcode_menu_quality(stdscr, config):
                 '-progress', 'pipe:1',
                 output_folder+'/'+renamed
             ]
-            proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,  text=True, bufsize=1)
-
-            progress = {}
-            for line in proc.stdout:
-                line = line.strip()
-                if "=" in line: # assemble progress dictionary
-                    k, v = line.split("=", 1)
-                    progress[k] = v
-                if line == "progress=continue":
-                    progress_string = f"Media Time: {progress.get('out_time')}   nFrame: {progress.get('frame')}/{n_frames}   fps: {progress.get('fps')}   Speed: {progress.get('speed')}"
-                    stdscr.addstr(17, 3, progress_string, colors['unselected_entry_softer'])
-                    stdscr.refresh()
-            proc.wait()
+            log_file = (
+                open("ffmpeg-log", "a", encoding="utf-8")
+                if config['enable_ffmpeg_debug_log']['value'] == 'y'
+                else subprocess.DEVNULL
+            )
+            try:
+                proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=log_file,  text=True, bufsize=1)
+                progress = {}
+                for line in proc.stdout:
+                    line = line.strip()
+                    if "=" in line: # assemble progress dictionary
+                        k, v = line.split("=", 1)
+                        progress[k] = v
+                    if line == "progress=continue":
+                        progress_string = f"Media Time: {progress.get('out_time')}   nFrame: {progress.get('frame')}/{n_frames}   fps: {progress.get('fps')}   Speed: {progress.get('speed')}"
+                        stdscr.addstr(17, 3, progress_string, colors['unselected_entry_softer'])
+                        stdscr.refresh()
+                proc.wait()
+            finally:
+                if log_file is not subprocess.DEVNULL: log_file.close()
         stdscr.addstr(18, (w//2)-10, "Done!", colors['downloaded_torrent_color'])
         stdscr.refresh()
         stdscr.getch()
@@ -1323,18 +1338,26 @@ def transcode_menu_language(stdscr, config):
             ]
 
         n_frames = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets", "-show_entries", "stream=nb_read_packets", "-of", "csv=p=0", config['download_path']['value']+'/'+first_selected_media+'.mkv'], capture_output=True, text=True, check=True).stdout.strip()
-        proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,  text=True, bufsize=1)
-        progress = {}
-        for line in proc.stdout:
-            line = line.strip()
-            if "=" in line: # assemble progress dictionary
-                k, v = line.split("=", 1)
-                progress[k] = v
-            if line == "progress=continue":
-                progress_string = f"Media Time: {progress.get('out_time')}   nFrame: {progress.get('frame')}/{n_frames}   fps: {progress.get('fps')}   Speed: {progress.get('speed')}"
-                stdscr.addstr(32, 3, progress_string, colors['unselected_entry_softer'])
-                stdscr.refresh()
-        proc.wait()
+        log_file = (
+            open("ffmpeg-log", "a", encoding="utf-8")
+            if config['enable_ffmpeg_debug_log']['value'] == 'y'
+            else subprocess.DEVNULL
+        )
+        try:
+            proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=log_file,  text=True, bufsize=1)
+            progress = {}
+            for line in proc.stdout:
+                line = line.strip()
+                if "=" in line: # assemble progress dictionary
+                    k, v = line.split("=", 1)
+                    progress[k] = v
+                if line == "progress=continue":
+                    progress_string = f"Media Time: {progress.get('out_time')}   nFrame: {progress.get('frame')}/{n_frames}   fps: {progress.get('fps')}   Speed: {progress.get('speed')}"
+                    stdscr.addstr(32, 3, progress_string, colors['unselected_entry_softer'])
+                    stdscr.refresh()
+            proc.wait()
+        finally:
+            if log_file is not subprocess.DEVNULL: log_file.close()
         stdscr.addstr(33, (w//2)-10, "Done!", colors['downloaded_torrent_color'])
         stdscr.refresh()
         stdscr.getch()
@@ -1658,19 +1681,26 @@ def transcode_menu_language(stdscr, config):
                     merge_output_folder+'/'+merge_renamed
                 ]
             n_frames = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets", "-show_entries", "stream=nb_read_packets", "-of", "csv=p=0", file], capture_output=True, text=True, check=True).stdout.strip()
-            proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,  text=True, bufsize=1)
-
-            progress = {}
-            for line in proc.stdout:
-                line = line.strip()
-                if "=" in line: # assemble progress dictionary
-                    k, v = line.split("=", 1)
-                    progress[k] = v
-                if line == "progress=continue":
-                    progress_string = f"Media Time: {progress.get('out_time')}   nFrame: {progress.get('frame')}/{n_frames}   fps: {progress.get('fps')}   Speed: {progress.get('speed')}"
-                    stdscr.addstr(33, 3, progress_string, colors['unselected_entry_softer'])
-                    stdscr.refresh()
-            proc.wait()
+            log_file = (
+                open("ffmpeg-log", "a", encoding="utf-8")
+                if config['enable_ffmpeg_debug_log']['value'] == 'y'
+                else subprocess.DEVNULL
+            )
+            try:
+                proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=log_file,  text=True, bufsize=1)
+                progress = {}
+                for line in proc.stdout:
+                    line = line.strip()
+                    if "=" in line: # assemble progress dictionary
+                        k, v = line.split("=", 1)
+                        progress[k] = v
+                    if line == "progress=continue":
+                        progress_string = f"Media Time: {progress.get('out_time')}   nFrame: {progress.get('frame')}/{n_frames}   fps: {progress.get('fps')}   Speed: {progress.get('speed')}"
+                        stdscr.addstr(33, 3, progress_string, colors['unselected_entry_softer'])
+                        stdscr.refresh()
+                proc.wait()
+            finally:
+                if log_file is not subprocess.DEVNULL: log_file.close()
         stdscr.addstr(34, (w//2)-10, "Done!", colors['downloaded_torrent_color'])
         stdscr.refresh()
         stdscr.getch()
@@ -1798,20 +1828,24 @@ def embed_subtitle_menu(stdscr, config):
 #        f'-metadata:s:s:{n_sub_streams}', f'title={sub_title}',
 #        files_path/output_mkv
 #    ]
-    process = subprocess.Popen(
-        mkvmerge_command,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+    log_file = (
+        open("ffmpeg-log", "a", encoding="utf-8")
+        if config['enable_ffmpeg_debug_log']['value'] == 'y'
+        else subprocess.DEVNULL
     )
-    dots = [".", "..", "..."]
-    i = 0
-    while process.poll() is None:
-        stdscr.addstr(27, 5, dots[i % len(dots)], colors["unselected_entry_softer"])
-        stdscr.refresh()
-        i += 1
-        time.sleep(0.2)
-        stdscr.addstr(27, 6, " "*2)
-    process.wait()
+    try:
+        process = subprocess.Popen(mkvmerge_command, stdout=log_file, stderr=subprocess.DEVNULL) # (ffmpeg would use stderr), but it buggy with sub streams so
+        dots = [".", "..", "..."]
+        i = 0
+        while process.poll() is None:
+            stdscr.addstr(27, 5, dots[i % len(dots)], colors["unselected_entry_softer"])
+            stdscr.refresh()
+            i += 1
+            time.sleep(0.2)
+            stdscr.addstr(27, 6, " "*2)
+        process.wait()
+    finally:
+        if log_file is not subprocess.DEVNULL: log_file.close()
     stdscr.addstr(27, 5, "Done!", colors['downloaded_torrent_color'])
     stdscr.refresh()
     stdscr.getch()
@@ -2136,12 +2170,10 @@ def edit_config_menu(stdscr, config, config_file):
         stdscr.refresh()
 
 
-#TODO: make (most) check_terminal_size variables global(->actually, defined in main) and properly limited (check kitty hypr cell count)
 #TODO: refactor
 #      - curses draw pipeline: call `redraw_windows` only when key `RESIZE` is triggered,, and always have menu contents reprinted each While True loop
 #      - elif key == ord('\x1b'): # if esc, quit
 #      - normalize to draw-loop-template
-#TODO: if ffmpeg stderr, capture to output errored out file
 def main(stdscr):
     curses.curs_set(0) # disable cursor blinking
 
