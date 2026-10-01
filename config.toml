@@ -32,3 +32,8 @@ transcode_video_args = ["libx265", "-preset", "slow", "-crf", "20"]
 # @ex 320kbps aac: aac -b:a 320k
 # 320kbps aac: "aac", "-b:a", "320k"
 transcode_audio_args = ["aac", "-b:a", "320k"]
+
+
+
+# @def enable this to get ffmpeg's stderr to file ("y"/"n")
+enable_ffmpeg_debug_log = "n"
