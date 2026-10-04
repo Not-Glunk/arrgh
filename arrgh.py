@@ -1735,21 +1735,8 @@ def indexers_menu(stdscr, indexers, indexer):
     # set current index as first
     current_idx = 0
 
-    # first draw cycle, printing currently selected and enabled indexers accordingly
-#    for idx, row in enumerate(indexers): #TODO: test if only one loop (see dc) inside while True can be enough,, and apply everywhere else in case
-#        x = w//2 - len(row)//2
-#        y = max((16+idx*2), ((h-6)//2 - len(indexers)//2 + idx*2))
-#        if idx == current_idx:
-#            stdscr.addstr(y, x, row, colors['selected_menu_color'])
-#        else:
-#            if indexers[row] == indexer:
-#                stdscr.addstr(y, x, row, colors["seeders_text_color"])
-#            else:
-#                stdscr.addstr(y, x, row, colors['leechers_text_color'])
-
     # user input loop
     while True:
-   
         # draw cycle, printing currently selected and enabled indexers accordingly
         stdscr.clear()
         redraw_windows(stdscr)
@@ -1763,7 +1750,6 @@ def indexers_menu(stdscr, indexers, indexer):
                     stdscr.addstr(y, x, row, colors["seeders_text_color"])
                 else:
                     stdscr.addstr(y, x, row, colors['leechers_text_color'])
-   
 
         # get user's input; the loop runs each time a key is caught
         key = stdscr.getch()
