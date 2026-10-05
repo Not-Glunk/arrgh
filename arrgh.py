@@ -931,7 +931,7 @@ def stream_selection(stdscr, y_pos, streams_list, prompt_string):
                 stdscr.addstr(starting_y+idx, 3, "□", colors['unselected_entry_softer'])
             else:
                 stdscr.addstr(starting_y+idx, 3, "■", colors['unselected_entry_softer'])
-            stream_string = str(streams_list[idx]['id']) + ': ' + streams_list[idx]['language'] + '(' + streams_list[idx]['title'] + ')'
+            stream_string = str(streams_list[idx]['id']) + ': ' + streams_list[idx]['language'] + ' (' + streams_list[idx]['title'] + ')'
             if idx == current_idx:
                 stdscr.addstr(starting_y+idx, 5, stream_string, colors['selected_menu_color'])
             else:
@@ -1114,6 +1114,8 @@ def transcode_menu_language(stdscr, config):
         if second_selected_media_idx is None: # handling quitting during media selection
             return
         second_selected_media = flister_list[second_selected_media_idx]
+
+        stdscr.addstr(22, 0, " "*w*(((h-16)//3)+2))
 
         # get second file's stream info
         second_media_audio_streams, second_media_subtitle_streams = get_streams_info(second_selected_media, config['wanted_languages']['value'], config['download_path']['value'])
@@ -1300,7 +1302,7 @@ def transcode_menu_language(stdscr, config):
 
         # display selected streams
 
-        stdscr.addstr(16, 0, " "*w*(((h-16)//3)+1))
+        stdscr.addstr(16, 0, " "*w*(((h-16)//3)+2))
 
         audio_selection = ", ".join(f'{stream["language"]} ({stream["title"]})' for stream in first_selected_audio_streams)
         subtitle_selection = ", ".join(f'{stream["language"]} ({stream["title"]})' for stream in first_selected_subtitle_streams)
@@ -1321,6 +1323,8 @@ def transcode_menu_language(stdscr, config):
         if second_selected_media_idx is None: # handling quitting during media selection
             return
         second_selected_media = flister_list[second_selected_media_idx]
+
+        stdscr.addstr(22, 0, " "*w*(((h-16)//3)+2))
 
         # compose second input folder path as per config
         second_input_folder = Path(config['download_path']['value'])/second_selected_media
