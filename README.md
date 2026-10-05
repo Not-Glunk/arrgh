@@ -25,8 +25,8 @@ Initially, I had planned to implement automatic fetching, downloading and mergin
 
 
 ### Indexers
-Currently only Nyaa.si is supported by default, but you can implement your own! <sup>and contributions are appreciated!</sup>
-You can do so by following the template in the [indexers file](https://github.com/Not-Glunk/arrgh/blob/main/fingers.py#L48) and writing a function which given a search query as input, returns a list of dictionaries containing the torrents' info structured as follows:
+Currently only Nyaa.si is supported by default, but you can implement your own! <sup>and contributions are appreciated!</sup><br />
+You can do so by following the template in the [indexers file](https://github.com/Not-Glunk/arrgh/blob/main/fingers.py#L48) and writing a function which given a search query as input, returns a list of dictionaries containing the torrents' info structured as follows:<br />
 <sup>I will likely be implementing ext.to, but it'll be janky</sup>
 ```py
 "title": "Made in Abyss S01"
