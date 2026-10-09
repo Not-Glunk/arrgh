@@ -2216,7 +2216,7 @@ def main(stdscr):
     curses.curs_set(0)
 
     # specify and load config file
-    config_file = "config2.toml"
+    config_file = "config.toml"
     config = load_config(config_file)
 
     # load indexers and set default one
