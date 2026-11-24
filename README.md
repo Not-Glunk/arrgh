@@ -58,4 +58,7 @@ To install, just `pip install -r requirements.txt`, and make sure to have ffmpeg
 
 - asian (or otherwise of non-standard monospace width) unicode characters have been handled, but they still sometimes break truncation or line-wrap, just a cosmetic issue though
 
+- (known, #tofix) `add_input_field` doesn't allow user to input " " (strips it beforehand)
+
+- (known, #todo) add for loop to append the `ffmpeg_command` list when debug log is enabled
 </details>
